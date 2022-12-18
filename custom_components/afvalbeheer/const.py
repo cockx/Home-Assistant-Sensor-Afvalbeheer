@@ -94,6 +94,7 @@ OPZET_COLLECTOR_URLS = {
     'voorschoten':              'https://afvalkalender.voorschoten.nl',
     'waalre':                   'https://afvalkalender.waalre.nl',
     'zrd':                      'https://afvalkalender.zrd.nl',
+    'ilva':                     'https://afvalkalender.ilva.be/nl/',
 }
 
 XIMMIO_COLLECTOR_IDS = {
