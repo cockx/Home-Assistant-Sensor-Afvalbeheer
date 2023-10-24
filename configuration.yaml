@@ -1,0 +1,17 @@
+afvalbeheer:
+  wastecollector: ilva
+  addressid: 31006
+  postcode: 1
+  street_name: streetname
+  street_number: XXX
+  resources:
+    - restafval
+    - gft
+    - papier
+    - pmd
+    - glas
+    - kerstbomen
+  upcomingsensor: 1
+  dutch: 1
+  builtinicons: 1
+  builtiniconsnew: 1
