@@ -56,20 +56,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
-    _LOGGER.debug("Setup of Afvalbeheer component Rest API retriever")
+    _LOGGER.debug("Setup of Afvalbeheer component Rest API  ILVA VERSION By Cockx D.")
 
     config = config.get(DOMAIN, None)
-
+    _LOGGER.debug("dit is de config: %r",config)
     if config is None:
         return True
 
     if not isinstance(config, list):
         config = [config]
-
+        
     for conf in config:
 
         data = Get_WasteData_From_Config(hass, conf)
-
+        _LOGGER.debug("Waste_Data: %r",data.address_id)
         hass.data.setdefault(DOMAIN, {})[conf[CONF_ID]] = data
 
         await hass.helpers.discovery.async_load_platform(

@@ -98,7 +98,10 @@ class WasteData(object):
         self.__select_collector()
 
     def __select_collector(self):
-        if self.waste_collector in XIMMIO_COLLECTOR_IDS.keys():
+        if self.waste_collector == "ilva":
+            _LOGGER.info("Ilva Collector activated %r",self.address_id)
+            self.collector = IlvaCollector(self.hass, self.waste_collector, self.postcode, self.address_id, self.suffix)
+        elif self.waste_collector in XIMMIO_COLLECTOR_IDS.keys():
             self.collector = XimmioCollector(self.hass, self.waste_collector, self.postcode, self.street_number, self.suffix, self.address_id, self.customer_id)
         elif self.waste_collector in ["mijnafvalwijzer", "afvalstoffendienstkalender"] or self.waste_collector == "rova":
             self.collector = AfvalwijzerCollector(self.hass, self.waste_collector, self.postcode, self.street_number, self.suffix)
@@ -118,6 +121,7 @@ class WasteData(object):
             self.collector = RD4Collector(self.hass, self.waste_collector, self.postcode, self.street_number, self.suffix)
         elif self.waste_collector in OPZET_COLLECTOR_URLS.keys():
             self.collector = OpzetCollector(self.hass, self.waste_collector, self.postcode, self.street_number, self.suffix)
+        
         else:
             persistent_notification.create(
                 self.hass,
@@ -542,6 +546,66 @@ class LimburgNetCollector(WasteCollector):
 
         except requests.exceptions.RequestException as exc:
             _LOGGER.error('Error occurred while fetching data: %r', exc)
+            return False
+
+
+class IlvaCollector(WasteCollector):
+    WASTE_TYPE_MAPPING = {
+        '_trash': WASTE_TYPE_GREY,
+        'pmd': WASTE_TYPE_PACKAGES,
+        'paper': WASTE_TYPE_PAPER,
+        'gft': WASTE_TYPE_GREEN,
+        'glass': WASTE_TYPE_GLASS,
+        'tree': WASTE_TYPE_TREE,
+    }
+    def __init__(self, hass, waste_collector, postcode, address_id, suffix):
+        super(IlvaCollector, self).__init__(hass, waste_collector, postcode, address_id, suffix)
+        self.main_url = "https://afvalkalender.ilva.be/nl/ajax/data/kalenderdagen"
+        self.address_id = address_id
+        self.postcode = postcode
+        _LOGGER.debug("this is the Ilva Collector")
+
+    def __get_data(self):
+        self.today = datetime.today()
+        self.end = self.today + timedelta(days = 365)
+        
+        self.year = self.today.year
+        _LOGGER.debug("adressid test: %r", self.address_id)
+        response = requests.get(
+            '{}?start={}&end={}&n=0&id_iadres={}&id_igemeente={}'.format(self.main_url, self.today.isoformat(), self.end.isoformat(), self.address_id, self.postcode)
+        )
+        _LOGGER.debug("incomming data: %r",response)
+        return response
+
+    async def update(self):
+        _LOGGER.debug('Updating Waste collection dates using Rest API ILVA')
+
+        self.collections.remove_all()
+
+        try:
+            r = await self.hass.async_add_executor_job(self.__get_data)
+            response = r.json()
+            _LOGGER.info('Data From server: %r',response)
+            if not response:
+                _LOGGER.error('No Waste data found!')
+                return
+
+            for item in response:
+
+                waste_type = self.map_waste_type(item["className"])
+                date = item["start"]
+                
+                if not waste_type or not date:
+                    continue
+
+                collection = WasteCollection.create(
+                    date=datetime.strptime(date, "%Y-%m-%dT%X"),
+                    waste_type=waste_type
+                )
+                self.collections.add(collection)
+
+        except requests.exceptions.RequestException as exc:
+            _LOGGER.error('Error occurred while fetching data ILVA: %r', exc)
             return False
 
 
@@ -1031,7 +1095,9 @@ def Get_WasteData_From_Config(hass, config):
 
     update_interval = config.get(CONF_UPDATE_INTERVAL)
     customer_id = config.get(CONF_CUSTOMER_ID)
-
+    _LOGGER.debug("WasteCollector: %r",waste_collector)
+    _LOGGER.debug("Waste_address_id: %r",address_id)
+    _LOGGER.debug("Waste_postcode: %r",postcode)
     config["id"] = _format_id(waste_collector, postcode, street_number)
 
     if waste_collector in DEPRECATED_AND_NEW_WASTECOLLECTORS:
